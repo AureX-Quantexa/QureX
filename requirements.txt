@@ -1,0 +1,14 @@
+# Loose ranges for now. AFTER all four of you install successfully, ONE person runs
+#   pip freeze > requirements.lock.txt
+# and everyone reinstalls from the lock file. (See README, Step 0.4)
+streamlit>=1.30
+numpy>=1.26
+pandas>=2.0
+networkx>=3.2
+scipy>=1.11
+scikit-learn>=1.3
+xgboost>=2.0
+pennylane>=0.36
+openai>=1.0
+matplotlib>=3.8
+pytest>=8.0
