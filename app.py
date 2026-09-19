@@ -19,6 +19,7 @@ from ui_components import (apply_custom_styles, render_copilot_box,
                            render_qaoa_diagnostics, render_statistical_diagnostics,
                            render_status_table, render_pydeck_map)
 from live_dashboard import render_live_sumo_dashboard
+from chatbot import render_chat_interface
 
 # Page configuration
 st.set_page_config(
@@ -45,11 +46,13 @@ if "grid_state" not in st.session_state:
 
 # ---------------------------------------------------------------- Sidebar Navigation
 st.sidebar.markdown("## 🧭 Navigation")
-page = st.sidebar.radio("Select View:", ["Command Center", "Live SUMO Analytics"])
+page = st.sidebar.radio("Select View:", ["Command Center", "Live SUMO Analytics", "COPS AI Assistant"])
 st.sidebar.markdown("---")
 
 if page == "Live SUMO Analytics":
     render_live_sumo_dashboard()
+elif page == "COPS AI Assistant":
+    render_chat_interface({})
 else:
     # ---------------------------------------------------------------- Sidebar: Panel 1 (Incident Console)
     st.sidebar.markdown("## 🕹️ Incident Console & Playback")

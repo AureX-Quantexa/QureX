@@ -29,7 +29,7 @@ def apply_custom_styles() -> None:
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
         
         /* Base typography and background */
-        html, body, [class*="css"], .stApp, .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
+        html, body, [class*="css"], .stApp, .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, label {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
             color: #3D4459 !important; /* Darkest Navy from palette for maximum contrast */
         }
