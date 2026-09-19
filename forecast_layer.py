@@ -21,33 +21,24 @@ class ForecasterModel:
         scaler = stats_model.scaler
         pca = stats_model.pca
 
-        rng = np.random.default_rng(seed)
-        n = len(X)
-        q_t = X[:, ::3]  # shape (n, 6), queue for each node in NODE_IDS order
-
-        # Queue-balance dynamics:
-        # q_{t+T} = clip(q_t + (lambda_i - mu_i) * T + noise, 0, C_i)
-        # T = 300s, service rate mu = s * g * eta = 0.5 * 0.5 * 0.9 = 0.225 veh/s
-        # During queue buildup, arrival rate exceeds service rate with net influx ~ 0.15 * q_t
-        T = 300.0
-        s_rate = 0.5
-        g = 0.5
-        eta = 0.9
-        mu = s_rate * g * eta  # 0.225 veh/s
-        net_flow = 0.15 * q_t
-        lam = mu + net_flow / T
-        noise = rng.normal(0.0, 1.0, size=q_t.shape)
-        Y = np.clip(q_t + (lam - mu) * T + noise, 0.0, float(DEFAULT_CAPACITY))
-
+        # Use sliding window over historical dataset: predict q_{t+1} from features at t
+        q_t = X[:, ::3]  # shape (n, 6)
+        
+        # We predict the next 5-min interval, so Y is q_t shifted by 1
+        Y = q_t[1:]
+        
         # Features projected onto PCA eigen-basis
-        X_scaled = scaler.transform(X)
+        X_scaled = scaler.transform(X[:-1]) # Match length of Y
         Z = pca.transform(X_scaled)
+        
+        # Adjust n since we dropped 1 row
+        n = len(Y)
 
         # 80/20 train/validation split
         n_train = int(0.8 * n)
         Z_train, Z_val = Z[:n_train], Z[n_train:]
         Y_train, Y_val = Y[:n_train], Y[n_train:]
-        q_val = q_t[n_train:]
+        q_val = q_t[n_train:-1]
 
         self.regressor = xgb.XGBRegressor(
             n_estimators=200,

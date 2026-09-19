@@ -50,7 +50,8 @@ def triage(grid_state: GridState, forecast: np.ndarray, G: nx.Graph) -> TriageRe
     raw_weights = {}
     for node in critical_nodes:
         cap = float(grid_state[node]["capacity"])
-        raw_weights[node] = float(grid_state[node]["queue"]) / cap if cap > 0 else 0.0
+        # Round weights to 1 decimal place so the QAOA cache hits constantly and doesn't lag the system!
+        raw_weights[node] = round(float(grid_state[node]["queue"]) / cap if cap > 0 else 0.0, 1)
 
     max_raw = max(raw_weights.values()) if raw_weights else 0.0
     if max_raw > 0.0:

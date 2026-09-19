@@ -6,6 +6,7 @@ Hybrid Quantum-Classical Urban Traffic Optimization Platform.
 Run:  streamlit run app.py
 """
 import streamlit as st
+import pandas as pd
 
 from config import (EVENT_ACCIDENT, EVENT_CODES, EVENT_CONGESTION, EVENT_EMERGENCY,
                     EVENT_FESTIVAL, EVENT_LABELS, EVENT_NORMAL, NODE_IDS)
@@ -16,7 +17,8 @@ from ui_components import (apply_custom_styles, render_copilot_box,
                            render_emergency_corridor_panel, render_header,
                            render_kpi_comparison_chart, render_network_graph,
                            render_qaoa_diagnostics, render_statistical_diagnostics,
-                           render_status_table)
+                           render_status_table, render_pydeck_map)
+from live_dashboard import render_live_sumo_dashboard
 
 # Page configuration
 st.set_page_config(
@@ -41,9 +43,42 @@ G = get_graph()
 if "grid_state" not in st.session_state:
     st.session_state.grid_state = default_grid_state()
 
-# ---------------------------------------------------------------- Sidebar: Panel 1 (Incident Console)
-st.sidebar.markdown("## 🕹️ Incident Console")
-st.sidebar.caption("Inject disruptions to test real-time L1–L6 hybrid adaptation.")
+# ---------------------------------------------------------------- Sidebar Navigation
+st.sidebar.markdown("## 🧭 Navigation")
+page = st.sidebar.radio("Select View:", ["Command Center", "Live SUMO Analytics"])
+st.sidebar.markdown("---")
+
+if page == "Live SUMO Analytics":
+    render_live_sumo_dashboard()
+else:
+    # ---------------------------------------------------------------- Sidebar: Panel 1 (Incident Console)
+    st.sidebar.markdown("## 🕹️ Incident Console & Playback")
+    st.sidebar.caption("Inject disruptions or playback real historical data.")
+
+@st.cache_data
+def load_dataset():
+    try:
+        return pd.read_csv("historical_traffic.csv")
+    except Exception:
+        return None
+
+df_traffic = load_dataset()
+if df_traffic is not None:
+    st.sidebar.markdown("### ⏪ Historical Playback")
+    max_idx = len(df_traffic) - 1
+    t_idx = st.sidebar.slider("Scrub Dataset Time", 0, max_idx, 0, format="Row %d")
+    
+    if st.sidebar.button("Load Row to Grid", use_container_width=True):
+        row = df_traffic.iloc[t_idx]
+        new_state = default_grid_state()
+        for node in NODE_IDS:
+            new_state[node]["queue"] = float(row[f"{node}_queue"])
+            new_state[node]["occupancy"] = float(row[f"{node}_occupancy"])
+            new_state[node]["avg_speed"] = float(row[f"{node}_avg_speed"])
+            new_state[node]["event"] = EVENT_NORMAL
+        st.session_state.grid_state = new_state
+        st.rerun()
+    st.sidebar.markdown("---")
 
 target = st.sidebar.selectbox("Target Intersection", NODE_IDS, index=0)
 event = st.sidebar.selectbox(
@@ -109,9 +144,14 @@ col_left, col_right = st.columns([1.1, 1.0], gap="large")
 
 with col_left:
     st.markdown("### 🗺️ Network Topology & Phase Allocation")
-    st.caption("2×3 urban arterial grid. Nodes colored by predicted utilization $u_i = \\hat{q}_i / C_i$.")
-    # Panel 2: Network Topology Graph (Matplotlib 2x3 grid)
-    render_network_graph(G, st.session_state.grid_state, out.phases, out.corridor, out.forecast)
+    
+    tab1, tab2 = st.tabs(["🌎 Folium Map (GPS)", "🕸️ Logical Grid (Matplotlib)"])
+    with tab1:
+        st.caption("Interactive OpenStreetMap view with traffic & phase overlays.")
+        render_pydeck_map(G, st.session_state.grid_state, out.phases, out.corridor, out.forecast)
+    with tab2:
+        st.caption("2×3 urban arterial grid. Nodes colored by predicted utilization $u_i = \\hat{q}_i / C_i$.")
+        render_network_graph(G, st.session_state.grid_state, out.phases, out.corridor, out.forecast)
 
 with col_right:
     st.markdown("### 📋 Intersection Telemetry & Strategy Table")

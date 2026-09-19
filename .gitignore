@@ -5,3 +5,8 @@ venv/
 .streamlit/secrets.toml
 .pytest_cache/
 .DS_Store
+sumo/
+sumo.zip
+scratch/
+live_sumo_state.json
+

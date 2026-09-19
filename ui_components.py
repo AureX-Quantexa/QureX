@@ -14,35 +14,63 @@ import pandas as pd
 import streamlit as st
 
 from config import (EDGE_TRAVEL_COST, EMERGENCY_TARGET, EVENT_LABELS, EVENT_NORMAL,
-                    GRID_COLS, GRID_ROWS, NODE_IDS, PHASE_ADAPTIVE_SHORT,
+                    GRID_COLS, GRID_ROWS, NODE_IDS, NODE_COORDS, PHASE_ADAPTIVE_SHORT,
                     PHASE_EMERGENCY_CORRIDOR, PHASE_LABELS, PHASE_MAX_GREEN,
                     PHASE_STANDARD_FIXED)
 from contracts import GridState, KPIResult, Phases, StatsResult
+import pydeck as pdk
 
 
 def apply_custom_styles() -> None:
-    """Inject custom modern dark/glassmorphic CSS styling with Google Fonts."""
+    """Inject custom modern SaaS light-mode CSS styling with Google Fonts."""
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
         
-        html, body, [class*="css"] {
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+        /* Base typography and background */
+        html, body, [class*="css"], .stApp, .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            color: #3D4459 !important; /* Darkest Navy from palette for maximum contrast */
+        }
+        
+        .stApp {
+            background-color: #EAECEF !important;
+        }
+        
+        /* Captions and secondary text */
+        .stCaption, .stCaption p, [data-testid="stCaptionContainer"] {
+            color: #9A9EA6 !important;
         }
         
         code, pre {
             font-family: 'JetBrains Mono', monospace !important;
+            color: #3D4459 !important;
         }
 
-        /* Gradient header badge */
+        /* Clean White Header Box */
         .qurex-header-box {
-            background: linear-gradient(135deg, rgba(16, 24, 40, 0.95), rgba(30, 41, 59, 0.95));
-            border: 1px solid rgba(56, 189, 248, 0.2);
-            border-radius: 14px;
-            padding: 20px 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            background: #FFFFFF;
+            border: 1px solid #D0D4D9;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        .qurex-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4A5060;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .qurex-subtitle {
+            font-size: 1.1rem;
+            color: #9A9EA6;
+            margin-top: 0.5rem;
+            font-weight: 400;
         }
 
         .simulated-badge {
@@ -61,36 +89,89 @@ def apply_custom_styles() -> None:
         }
 
         .copilot-card {
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 27, 75, 0.85));
+            background: #FFFFFF;
             border-left: 4px solid #8b5cf6;
             border-radius: 10px;
             padding: 16px 20px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+            color: #4A5060;
         }
 
         .metric-card {
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(148, 163, 184, 0.1);
+            background: #FFFFFF;
+            border: 1px solid #D0D4D9;
             border-radius: 12px;
             padding: 14px 18px;
             text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .corridor-step {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: #FEF2F2;
+            border: 1px solid #FCA5A5;
             border-radius: 8px;
             padding: 10px 14px;
             margin-bottom: 8px;
+            color: #991B1B;
         }
 
         .standby-card {
-            background: rgba(34, 197, 94, 0.08);
-            border: 1px solid rgba(34, 197, 94, 0.25);
+            background: #F0FDF4;
+            border: 1px solid #86EFAC;
             border-radius: 8px;
             padding: 14px;
-            color: #4ade80;
+            color: #166534;
+        }
+
+        /* Metric Cards Override */
+        [data-testid="stMetric"] {
+            background-color: #FFFFFF !important;
+            border: 1px solid #D0D4D9 !important;
+            border-radius: 10px !important;
+            padding: 1.2rem !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.2s ease-in-out;
+        }
+        
+        [data-testid="stMetric"]:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        [data-testid="stMetricLabel"] {
+            color: #9A9EA6 !important;
+            font-weight: 500 !important;
+            font-size: 0.9rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        [data-testid="stMetricValue"] {
+            color: #4A5060 !important;
+            font-weight: 700 !important;
+            font-size: 2rem !important;
+            letter-spacing: -0.02em !important;
+        }
+        
+        /* Metric Delta colors override to fit palette */
+        [data-testid="stMetricDelta"] svg {
+            color: #4A5060 !important;
+        }
+        
+        /* Sidebar styling */
+        [data-testid="stSidebar"] {
+            background-color: #FFFFFF !important;
+            border-right: 1px solid #D0D4D9 !important;
+        }
+        
+        /* Tabs */
+        [data-testid="stTabs"] button {
+            color: #9A9EA6 !important;
+        }
+        [data-testid="stTabs"] button[aria-selected="true"] {
+            color: #4A5060 !important;
+            border-bottom-color: #4A5060 !important;
         }
         </style>
         """,
@@ -508,3 +589,90 @@ def render_qaoa_diagnostics(diagnostics: dict, critical_nodes: List[str]) -> Non
                     "Decision": "MAX_GREEN (1)" if r_val >= 0.95 else "ADAPTIVE (0)",
                 })
             st.dataframe(pd.DataFrame(bit_data), width="stretch", hide_index=True)
+
+
+def render_pydeck_map(G, grid_state, phases, corridor, forecast) -> None:
+    """Render an interactive map using PyDeck (Native WebGL)."""
+    # Compute center
+    lats = [coord[0] for coord in NODE_COORDS.values()]
+    lons = [coord[1] for coord in NODE_COORDS.values()]
+    center_lat = sum(lats) / len(lats)
+    center_lon = sum(lons) / len(lons)
+
+    # Compute utilization
+    utilizations = {}
+    for i, n in enumerate(NODE_IDS):
+        cap = max(1, grid_state[n]["capacity"])
+        u = min(1.0, float(forecast[i]) / cap)
+        utilizations[n] = u
+
+    corridor_edges = set()
+    if len(corridor) > 1:
+        for k in range(len(corridor) - 1):
+            corridor_edges.add((corridor[k], corridor[k + 1]))
+            corridor_edges.add((corridor[k + 1], corridor[k]))
+
+    # Edges data
+    edges_data = []
+    for u, v in G.edges():
+        is_corr = (u, v) in corridor_edges
+        coord_u = NODE_COORDS[u]
+        coord_v = NODE_COORDS[v]
+        color = [239, 68, 68, 200] if is_corr else [71, 85, 105, 150]
+        edges_data.append({
+            "start": [coord_u[1], coord_u[0]],
+            "end": [coord_v[1], coord_v[0]],
+            "color": color,
+            "width": 10 if is_corr else 4
+        })
+
+    # Nodes data
+    nodes_data = []
+    for n in NODE_IDS:
+        coord = NODE_COORDS[n]
+        u = utilizations[n]
+        is_corr = n in corridor
+        
+        if u > 0.7:
+            fill_col = [220, 38, 38, 200]
+        elif u > 0.4:
+            fill_col = [249, 115, 22, 200]
+        else:
+            fill_col = [254, 240, 138, 200]
+            
+        nodes_data.append({
+            "name": n,
+            "coord": [coord[1], coord[0]],
+            "color": fill_col,
+            "radius": 40 if is_corr else 25
+        })
+
+    # Layers
+    line_layer = pdk.Layer(
+        "LineLayer",
+        edges_data,
+        get_source_position="start",
+        get_target_position="end",
+        get_color="color",
+        get_width="width",
+        pickable=False
+    )
+    
+    scatter_layer = pdk.Layer(
+        "ScatterplotLayer",
+        nodes_data,
+        get_position="coord",
+        get_color="color",
+        get_radius="radius",
+        pickable=True
+    )
+    
+    view_state = pdk.ViewState(
+        latitude=center_lat,
+        longitude=center_lon,
+        zoom=15,
+        pitch=0
+    )
+    
+    r = pdk.Deck(layers=[line_layer, scatter_layer], initial_view_state=view_state, tooltip={"text": "{name}"})
+    st.pydeck_chart(r, height=450, use_container_width=True)

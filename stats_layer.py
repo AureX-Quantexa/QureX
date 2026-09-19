@@ -11,24 +11,28 @@ from sklearn.covariance import LedoitWolf
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from config import (ANOMALY_ALPHA, N_NODES, PCA_VARIANCE_TARGET, RANDOM_SEED)
+import pandas as pd
+
+from config import (ANOMALY_ALPHA, N_NODES, PCA_VARIANCE_TARGET, RANDOM_SEED, NODE_IDS)
 from contracts import GridState, StatsResult, flatten_grid_state
 
 
-def simulate_history(n: int = 2000, seed: int = RANDOM_SEED) -> np.ndarray:
-    """Correlated telemetry generator: queue up -> occupancy up -> speed down.
-    Generates city-wide demand factor plus node-local factor.
-    Returns X of shape (n, 18) laid out [queue, occupancy, avg_speed] x 6 nodes.
+def load_historical_data(filename: str = "historical_traffic.csv") -> np.ndarray:
+    """Load historical traffic data from CSV and format as (n, 18) array.
+    Laid out as [queue, occupancy, avg_speed] x 6 nodes.
     """
-    rng = np.random.default_rng(seed)
-    D = rng.normal(size=(n, 1))                      # City-wide demand factor
-    e = rng.normal(size=(n, N_NODES))                # Per-node local factor
-    zq = 0.6 * D + 0.8 * e                           # Unit variance queue latent
-    q = 15.0 + 3.0 * zq
-    occ = 30.0 + 8.0 * (0.85 * zq + 0.527 * rng.normal(size=(n, N_NODES)))
-    zo = (occ - 30.0) / 8.0
-    spd = 40.0 - 5.0 * (0.8 * zo + 0.6 * rng.normal(size=(n, N_NODES)))
-    return np.stack([q, occ, spd], axis=2).reshape(n, 18)
+    df = pd.read_csv(filename)
+    n = len(df)
+    
+    # Extract columns in the correct order for the 18-element feature vector
+    features = []
+    for node in NODE_IDS:
+        features.append(df[f"{node}_queue"].values)
+        features.append(df[f"{node}_occupancy"].values)
+        features.append(df[f"{node}_avg_speed"].values)
+        
+    X = np.stack(features, axis=1) # shape (n, 18)
+    return X
 
 
 class StatsModel:
@@ -80,7 +84,7 @@ def get_stats_model() -> StatsModel:
     """Retrieve or initialize the cached StatsModel singleton."""
     global _STATS_MODEL
     if _STATS_MODEL is None:
-        X = simulate_history(n=2000, seed=RANDOM_SEED)
+        X = load_historical_data("historical_traffic.csv")
         _STATS_MODEL = StatsModel(X, alpha=ANOMALY_ALPHA, var_target=PCA_VARIANCE_TARGET, seed=RANDOM_SEED)
     return _STATS_MODEL
 

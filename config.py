@@ -16,6 +16,15 @@ GRID_ROWS, GRID_COLS = 2, 3            # 2x3 street grid, row-major:
 EDGE_TRAVEL_COST = 20.0                # seconds, every road segment
 EMERGENCY_TARGET = "Intersection_1"    # hospital / control-centre node
 
+NODE_COORDS = {                        # GPS Coordinates for Folium map
+    "Intersection_1": (40.7580, -73.9855),
+    "Intersection_2": (40.7590, -73.9840),
+    "Intersection_3": (40.7600, -73.9825),
+    "Intersection_4": (40.7570, -73.9840),
+    "Intersection_5": (40.7580, -73.9825),
+    "Intersection_6": (40.7590, -73.9810),
+}
+
 # ---------------------------------------------------------------- telemetry
 # Per-node telemetry keys, in this exact order.
 FEATURES = ("queue", "occupancy", "avg_speed")
@@ -61,6 +70,6 @@ PHASE_LABELS = {                       # UI ONLY
 # ---------------------------------------------------------------- tunables
 RANDOM_SEED = 42
 MAX_QUBITS = 6                         # M3 must never exceed this
-TRIAGE_UTILIZATION_THRESHOLD = 0.60    # predicted_inflow / capacity
+TRIAGE_UTILIZATION_THRESHOLD = 0.15    # predicted_inflow / capacity
 ANOMALY_ALPHA = 0.001                  # chi-square tail prob for Mahalanobis test
 PCA_VARIANCE_TARGET = 0.95             # PCA(n_components=0.95)

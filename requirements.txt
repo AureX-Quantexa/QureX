@@ -12,3 +12,7 @@ pennylane>=0.36
 openai>=1.0
 matplotlib>=3.8
 pytest>=8.0
+folium>=0.15
+streamlit-folium>=0.21
+eclipse-sumo>=1.27
+traci>=1.27
