@@ -64,6 +64,96 @@ def test_festival_marks_all_nodes():
 
 # ------------------------------------------------------------ add your own tests below
 # --- M1 (stats/forecast):
+def test_m1_stats_contracts():
+    import stats_layer
+    gs = default_grid_state()
+    res = stats_layer.run_statistics(gs)
+    validate_stats(res)
+    assert res.eigen_features.ndim == 1, "eigen_features must be strictly 1-D"
+    assert res.variance_retained >= 0.95, f"Variance retained {res.variance_retained} must be >= 0.95"
+    assert res.threshold == pytest.approx(6.50, abs=0.05), f"Threshold {res.threshold} should be ~6.50"
+    assert res.mahalanobis >= 0.0
+
+
+def test_m1_anomaly_scenarios():
+    import stats_layer
+    from config import EVENT_ACCIDENT, EVENT_CONGESTION, EVENT_EMERGENCY, EVENT_FESTIVAL
+    # 1. Default grid state is NOT anomalous
+    base = default_grid_state()
+    res_default = stats_layer.run_statistics(base)
+    assert not res_default.is_anomaly, f"Default state should not be anomaly, got D={res_default.mahalanobis:.2f}"
+    assert res_default.mahalanobis < res_default.threshold
+
+    # 2. Congestion is an anomaly
+    gs_cong = apply_event(base, NODE_IDS[0], EVENT_CONGESTION)
+    res_cong = stats_layer.run_statistics(gs_cong)
+    assert res_cong.is_anomaly, f"Congestion should be anomaly, got D={res_cong.mahalanobis:.2f}"
+    assert res_cong.mahalanobis > res_cong.threshold
+
+    # 3. Accident is an anomaly
+    gs_acc = apply_event(base, NODE_IDS[0], EVENT_ACCIDENT)
+    res_acc = stats_layer.run_statistics(gs_acc)
+    assert res_acc.is_anomaly, f"Accident should be anomaly, got D={res_acc.mahalanobis:.2f}"
+    assert res_acc.mahalanobis > res_acc.threshold
+
+    # 4. Festival is an anomaly
+    gs_fest = apply_event(base, NODE_IDS[0], EVENT_FESTIVAL)
+    res_fest = stats_layer.run_statistics(gs_fest)
+    assert res_fest.is_anomaly, f"Festival should be anomaly, got D={res_fest.mahalanobis:.2f}"
+    assert res_fest.mahalanobis > res_fest.threshold
+
+    # 5. Emergency is NOT an anomaly
+    gs_emg = apply_event(base, NODE_IDS[0], EVENT_EMERGENCY)
+    res_emg = stats_layer.run_statistics(gs_emg)
+    assert not res_emg.is_anomaly, f"Emergency should not be anomaly, got D={res_emg.mahalanobis:.2f}"
+    assert res_emg.mahalanobis < res_emg.threshold
+
+
+def test_m1_forecast_contracts():
+    import stats_layer
+    import forecast_layer
+    gs = default_grid_state()
+    stats = stats_layer.run_statistics(gs)
+    fc = forecast_layer.forecast_inflows(stats, gs)
+    validate_forecast(fc)
+    assert fc.shape == (len(NODE_IDS),)
+    assert np.all(np.isfinite(fc))
+    for i, n in enumerate(NODE_IDS):
+        assert 0.0 <= fc[i] <= gs[n]["capacity"], f"Node {n} forecast {fc[i]} outside [0, capacity]"
+
+
+def test_m1_forecast_beats_persistence():
+    import forecast_layer
+    model = forecast_layer.get_forecaster_model()
+    assert model.xgb_mae < model.persist_mae, (
+        f"XGBoost MAE ({model.xgb_mae:.3f}) must beat persistence MAE ({model.persist_mae:.3f})"
+    )
+    assert model.xgb_rmse < model.persist_rmse, (
+        f"XGBoost RMSE ({model.xgb_rmse:.3f}) must beat persistence RMSE ({model.persist_rmse:.3f})"
+    )
+
+
+def test_m1_warm_latency():
+    import time
+    import stats_layer
+    import forecast_layer
+    gs = default_grid_state()
+    # Warm up
+    for _ in range(5):
+        s = stats_layer.run_statistics(gs)
+        _ = forecast_layer.forecast_inflows(s, gs)
+
+    latencies = []
+    for _ in range(50):
+        t0 = time.perf_counter()
+        s = stats_layer.run_statistics(gs)
+        _ = forecast_layer.forecast_inflows(s, gs)
+        latencies.append(time.perf_counter() - t0)
+
+    avg_ms = float(np.mean(latencies) * 1000.0)
+    assert avg_ms < 50.0, f"Average warm latency ({avg_ms:.2f} ms) exceeds 50 ms threshold"
+
+
 # --- M2 (graph/routing/scenario):
 # --- M3 (quantum/metrics):
 def test_m3_qubo_ising_assertion():
