@@ -1,5 +1,11 @@
 # 🚦 QureX — Where Quantum meets the Road
 
+## 🔗 Project Links & Resources
+- 📊 **Pitch Deck (PPT):** [View Presentation](https://drive.google.com/drive/folders/1DZlM6dtM4epmjUq7cuXVPEsM0Ojo4yQP?usp=sharing)
+- 🖥️ **Live Interactive Dashboard:** [QureX Streamlit App](https://hwty8gwssm9wxdf8ot7kar.streamlit.app/)
+- 🎥 **SUMO Simulation Video:** [Watch Video Demonstration](https://drive.google.com/drive/folders/14NVYG-7kATyQwgaTkXdPFq76vS8FDZtB?usp=sharing)
+  > **Video Description:** This video demonstrates the raw 3D Eclipse SUMO simulation running in the background. It showcases the drastic difference between traditional traffic routing and our quantum-optimized system. You can visually observe a massive traffic jam under classical fixed-timers being instantly resolved when the QureX algorithm engages, creating a perfectly synchronized "Green Wave" where cars move fluidly without stopping.
+
 ## 📖 The Problem Statement
 Urban traffic congestion is a monumental crisis costing cities billions of dollars and millions of metric tons of wasted $\text{CO}_2$ emissions annually. Traditional traffic light systems operate on fixed timers or rudimentary actuated sensors that only look at one intersection at a time. They cannot dynamically coordinate across a grid, they fail to anticipate cascading traffic jams, and they do not provide a unified, prioritized "green wave" for emergency vehicles, leading to critical delays in life-saving scenarios.
 
