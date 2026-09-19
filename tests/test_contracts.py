@@ -8,7 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 import pytest
 
-from config import (EVENT_CODES, EVENT_EMERGENCY, EVENT_FESTIVAL, EVENT_NORMAL, NODE_IDS)
+from config import (EVENT_CODES, EVENT_EMERGENCY, EVENT_FESTIVAL, EVENT_NORMAL, NODE_IDS,
+                    PHASE_ADAPTIVE_SHORT, PHASE_MAX_GREEN)
 from contracts import (flatten_grid_state, validate_forecast, validate_grid_state,
                        validate_kpis, validate_phases, validate_stats, validate_triage)
 from graph_layer import build_city_graph
@@ -65,4 +66,54 @@ def test_festival_marks_all_nodes():
 # --- M1 (stats/forecast):
 # --- M2 (graph/routing/scenario):
 # --- M3 (quantum/metrics):
+def test_m3_qubo_ising_assertion():
+    from quantum_layer import _build_ising_hamiltonian
+    from classical_solver import compute_true_cost, solve_bruteforce
+    from contracts import TriageResult
+    nodes = NODE_IDS[:3]
+    w = {n: 0.8 for n in nodes}
+    c = {(nodes[0], nodes[1]): 0.4}
+    t = TriageResult(nodes, w, c)
+    sol = solve_bruteforce(t)
+    assert len(sol) == 3
+    assert all(ph in (PHASE_MAX_GREEN, PHASE_ADAPTIVE_SHORT) for ph in sol.values())
+
+
+def test_m3_qaoa_vs_bruteforce_accuracy():
+    from quantum_layer import optimize_with_diagnostics
+    from classical_solver import solve_bruteforce
+    from contracts import TriageResult
+    nodes = NODE_IDS[:3]
+    w = {nodes[0]: 0.9, nodes[1]: 0.4, nodes[2]: 0.7}
+    c = {(nodes[0], nodes[1]): 0.5, (nodes[1], nodes[2]): 0.3}
+    t = TriageResult(nodes, w, c)
+    phases, diag = optimize_with_diagnostics(t)
+    bf = solve_bruteforce(t)
+    assert diag["r"] >= 0.95
+    assert set(phases.keys()) == set(nodes)
+
+
+def test_m3_kpis_change_with_phases():
+    from metrics import compute_kpis
+    from contracts import TriageResult
+    gs = default_grid_state()
+    t = TriageResult([], {}, {})
+    p1 = {n: PHASE_MAX_GREEN for n in NODE_IDS}
+    p2 = {n: PHASE_ADAPTIVE_SHORT for n in NODE_IDS}
+    k1 = compute_kpis(gs, p1, t, [])
+    k2 = compute_kpis(gs, p2, t, [])
+    assert k1.total_quantum != k2.total_quantum
+    assert k1.fuel_saved_gal >= 0 and k1.co2_saved_kg >= 0
+
+
+def test_m3_zero_qubits():
+    from quantum_layer import optimize
+    from classical_solver import solve_bruteforce
+    from contracts import TriageResult
+    t = TriageResult([], {}, {})
+    assert optimize(t) == {}
+    assert solve_bruteforce(t) == {}
+
+
 # --- M4 (copilot/app):
+
