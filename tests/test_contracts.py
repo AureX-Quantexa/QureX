@@ -65,6 +65,123 @@ def test_festival_marks_all_nodes():
 # ------------------------------------------------------------ add your own tests below
 # --- M1 (stats/forecast):
 # --- M2 (graph/routing/scenario):
+def test_m2_all_scenario_presets_and_pr1():
+    from config import EVENT_ACCIDENT, EVENT_CONGESTION
+    from scenario import _PRESETS, EVENT_ROAD_CLOSURE
+    assert _PRESETS[EVENT_NORMAL]["queue"] == 12
+    assert _PRESETS[EVENT_NORMAL]["avg_speed"] == 42.0
+    assert _PRESETS[EVENT_CONGESTION]["queue"] == 45
+    assert _PRESETS[EVENT_CONGESTION]["avg_speed"] == 6.0
+    assert _PRESETS[EVENT_ACCIDENT]["queue"] == 38
+    assert _PRESETS[EVENT_ACCIDENT]["capacity"] == 15
+    assert _PRESETS[EVENT_EMERGENCY]["queue"] == 24
+    assert _PRESETS[EVENT_EMERGENCY]["avg_speed"] == 22.0
+    assert _PRESETS[EVENT_FESTIVAL]["queue"] == 40
+    assert _PRESETS[EVENT_ROAD_CLOSURE]["capacity"] == 5
+    assert _PRESETS[EVENT_ROAD_CLOSURE]["avg_speed"] == 1.0
+
+
+def test_m2_apply_event_immutability_and_pr1():
+    from scenario import apply_event, default_grid_state, EVENT_ROAD_CLOSURE
+    base = default_grid_state()
+    modified = apply_event(base, NODE_IDS[2], EVENT_ROAD_CLOSURE)
+    assert base[NODE_IDS[2]]["capacity"] == 50
+    assert modified[NODE_IDS[2]]["capacity"] == 5
+    assert modified[NODE_IDS[2]]["avg_speed"] == 1.0
+    assert modified[NODE_IDS[2]]["event"] == EVENT_ROAD_CLOSURE
+
+
+def test_m2_triage_contract_and_normalization():
+    from config import EVENT_CONGESTION
+    from graph_layer import triage
+    gs = default_grid_state()
+    gs = apply_event(gs, NODE_IDS[0], EVENT_CONGESTION)
+    gs = apply_event(gs, NODE_IDS[1], EVENT_CONGESTION)
+    forecast = np.zeros(len(NODE_IDS))
+    t = triage(gs, forecast, G)
+    validate_triage(t)
+    assert NODE_IDS[0] in t.critical_nodes
+    assert NODE_IDS[1] in t.critical_nodes
+    assert max(t.qubo_weights.values()) == 1.0
+    assert (NODE_IDS[0], NODE_IDS[1]) in t.couplings
+    assert t.couplings[(NODE_IDS[0], NODE_IDS[1])] > 0
+
+
+def test_m2_triage_capping_at_max_qubits():
+    from config import MAX_QUBITS
+    from graph_layer import triage
+    gs = default_grid_state()
+    forecast = np.array([100.0] * len(NODE_IDS))
+    t = triage(gs, forecast, G)
+    validate_triage(t)
+    assert len(t.critical_nodes) <= MAX_QUBITS
+    order = [NODE_IDS.index(n) for n in t.critical_nodes]
+    assert order == sorted(order)
+
+
+def test_m2_emergency_corridor_source_is_target():
+    from routing_layer import apply_emergency_override
+    from config import EMERGENCY_TARGET, PHASE_EMERGENCY_CORRIDOR
+    gs = apply_event(default_grid_state(), EMERGENCY_TARGET, EVENT_EMERGENCY)
+    phases = {n: PHASE_MAX_GREEN for n in NODE_IDS}
+    new_phases, corridor = apply_emergency_override(gs, G, phases)
+    assert corridor == [EMERGENCY_TARGET]
+    assert new_phases[EMERGENCY_TARGET] == PHASE_EMERGENCY_CORRIDOR
+
+
+def test_m2_emergency_corridor_distant_node():
+    from routing_layer import apply_emergency_override
+    from config import EMERGENCY_TARGET, PHASE_EMERGENCY_CORRIDOR
+    gs = apply_event(default_grid_state(), "Intersection_6", EVENT_EMERGENCY)
+    phases = {n: PHASE_ADAPTIVE_SHORT for n in NODE_IDS}
+    new_phases, corridor = apply_emergency_override(gs, G, phases)
+    assert corridor[0] == "Intersection_6"
+    assert corridor[-1] == EMERGENCY_TARGET
+    assert all(new_phases[n] == PHASE_EMERGENCY_CORRIDOR for n in corridor)
+
+
+def test_m2_emergency_corridor_multiple_emergencies():
+    from routing_layer import apply_emergency_override
+    from config import EMERGENCY_TARGET, PHASE_EMERGENCY_CORRIDOR
+    gs = apply_event(default_grid_state(), "Intersection_6", EVENT_EMERGENCY)
+    gs = apply_event(gs, "Intersection_4", EVENT_EMERGENCY)
+    phases = {n: PHASE_ADAPTIVE_SHORT for n in NODE_IDS}
+    new_phases, corridor = apply_emergency_override(gs, G, phases)
+    assert "Intersection_6" in corridor
+    assert "Intersection_4" in corridor
+    assert EMERGENCY_TARGET in corridor
+    assert len(corridor) == len(set(corridor))
+    assert all(new_phases[n] == PHASE_EMERGENCY_CORRIDOR for n in corridor)
+
+
+def test_m2_emergency_corridor_disconnected_graph():
+    from routing_layer import apply_emergency_override
+    import networkx as nx
+    isolated_G = nx.Graph()
+    isolated_G.add_nodes_from(NODE_IDS)
+    gs = apply_event(default_grid_state(), "Intersection_6", EVENT_EMERGENCY)
+    phases = {n: PHASE_ADAPTIVE_SHORT for n in NODE_IDS}
+    new_phases, corridor = apply_emergency_override(gs, isolated_G, phases)
+    assert corridor == []
+    assert new_phases == phases
+
+
+def test_m2_corridor_schedule_pr4():
+    from routing_layer import corridor_schedule
+    corridor = ["Intersection_6", "Intersection_5", "Intersection_2", "Intersection_1"]
+    schedule = corridor_schedule(G, corridor)
+    assert len(schedule) == 4
+    assert schedule[0]["node"] == "Intersection_6"
+    assert schedule[0]["eta"] == 0.0
+    assert schedule[0]["preempt_start"] == 0.0
+    assert schedule[0]["restore_time"] == 10.0
+    assert schedule[1]["node"] == "Intersection_5"
+    assert schedule[1]["eta"] == 20.0
+    assert schedule[1]["preempt_start"] == 5.0
+    assert schedule[1]["restore_time"] == 30.0
+    assert schedule[3]["node"] == "Intersection_1"
+    assert schedule[3]["eta"] == 60.0
+
 # --- M3 (quantum/metrics):
 def test_m3_qubo_ising_assertion():
     from quantum_layer import _build_ising_hamiltonian
