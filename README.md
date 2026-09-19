@@ -24,12 +24,12 @@ Our solution is structured across a crisp, 6-layer pipeline that processes live 
 3. **Layer 3: Predictive Wave Forecast (XGBoost)**  
    *What it does:* Uses an XGBoost machine learning model to look 5 minutes into the future, predicting which intersections will become congested before the traffic wave even hits them.
 4. **Layer 4: Graph Filtration Triage**  
-   *What it does:* Maps the city as a mathematical graph to isolate the most critical "bottleneck" intersections that are causing ripple effects across the grid.
+   *What it does:* Maps the city as a mathematical graph and applies **dynamic threshold graph clustering** to isolate the most critical "bottleneck" intersections that are causing ripple effects across the grid.
 5. **Layer 5: Quantum Core (CVaR-QAOA)**  
    *What it does:* Routes the critical bottlenecks to a Quantum Algorithm (QAOA) that explores thousands of combinatorial traffic light phases simultaneously, finding the mathematically optimal synchronization in milliseconds.
 6. **Layer 6: Emergency Priority & COPS AI Assistant**  
    *What it does:* 
-   - Overrides normal signals to instantly carve a "Green Wave" corridor for emergency vehicles.
+   - Uses the **Dijkstra algorithm** to calculate the absolute fastest route and overrides normal signals to instantly carve a "Green Wave" corridor for emergency vehicles.
    - Summarizes the entire system's mathematical outputs using an Interactive AI Assistant (COPS) that explains the traffic data simply and interactively to human operators.
 
 ### 🚀 Why is this better?
